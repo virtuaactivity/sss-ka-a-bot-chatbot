@@ -71,7 +71,7 @@ if "latest_reply_audio" not in st.session_state:
     st.session_state.latest_reply_audio = None
 
 # ============================================================
-# CSS — CLEAN KIOSK LAYOUT & HIDDEN AUDIO PLAYER
+# CSS — CLEAN KIOSK LAYOUT
 # ============================================================
 
 st.markdown(
@@ -87,11 +87,6 @@ st.markdown(
 
     header {
         background: transparent !important;
-    }
-
-    /* ITINAGO NITO ANG AUDIO PLAYER BAR PARA MALINIS ANG EKRAN */
-    div[data-testid="stAudio"] {
-        display: none !important;
     }
 
     .block-container {
@@ -220,7 +215,7 @@ if BANNER_FILE.exists():
     st.image(str(BANNER_FILE), use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 else:
-    st.error(f"Hindi makita ang {BANNER_FILE.name}.")
+    st.error("Hindi makita ang ka_abot_banner.png.")
 
 # ============================================================
 # AUDIO HELPERS & TEXT CLEANER
@@ -269,13 +264,18 @@ make_speech_audio(WELCOME_TEXT, WELCOME_AUDIO_FILE)
 def make_reply_voice(text: str):
     return make_speech_audio(text, REPLY_AUDIO_FILE)
 
+def play_invisible_audio(audio_file: Path):
+    """Nagpe-play ng audio sa background nang walang lumilitaw na player bar sa screen"""
+    if audio_file.exists():
+        encoded = base64.b64encode(audio_file.read_bytes()).decode("utf-8")
+        st.markdown(f'<audio autoplay src="data:audio/mp3;base64,{encoded}"></audio>', unsafe_allow_html=True)
+
 # ============================================================
 # WELCOME VOICE
 # ============================================================
 
 if st.session_state.voice_enabled and len(st.session_state.messages) == 0:
-    if WELCOME_AUDIO_FILE.exists():
-        st.audio(str(WELCOME_AUDIO_FILE), format="audio/mp3", autoplay=True)
+    play_invisible_audio(WELCOME_AUDIO_FILE)
 
 # ============================================================
 # CHAT AREA
@@ -323,8 +323,8 @@ else:
                 unsafe_allow_html=True,
             )
 
-    if st.session_state.latest_reply_audio and st.session_state.latest_reply_audio.exists():
-        st.audio(str(st.session_state.latest_reply_audio), format="audio/mp3", autoplay=True)
+    if st.session_state.latest_reply_audio:
+        play_invisible_audio(st.session_state.latest_reply_audio)
         st.session_state.latest_reply_audio = None
 
 # ============================================================
@@ -356,11 +356,7 @@ with col2:
 # API KEY STATUS
 # ============================================================
 
-API_KEY_READY = (
-    isinstance(GEMINI_API_KEY, str)
-    and bool(GEMINI_API_KEY.strip())
-    and GEMINI_API_KEY.strip() != "PASTE_YOUR_NEW_GEMINI_API_KEY_HERE"
-)
+API_KEY_READY = isinstance(GEMINI_API_KEY, str) and bool(GEMINI_API_KEY.strip())
 
 if API_KEY_READY:
     st.markdown('<div class="status-ok">● Ka A-bot is ready</div>', unsafe_allow_html=True)
