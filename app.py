@@ -6,7 +6,6 @@ import html
 import asyncio
 import re
 from pathlib import Path
-import streamlit.components.v1 as components
 
 # ============================================================
 # KA A-BOT — SSS ANTIPOLO BRANCH
@@ -234,53 +233,6 @@ def clean_text_for_speech(text: str) -> str:
     
     return clean_text.strip()[:1800]
 
-def play_audio_component(audio_file: Path, component_key: str, height: int = 70):
-    if not audio_file.exists():
-        return
-
-    try:
-        encoded = base64.b64encode(audio_file.read_bytes()).decode("utf-8")
-
-        components.html(
-            f"""
-            <!doctype html>
-            <html>
-            <head>
-                <style>
-                    body {{ margin: 0; padding: 0; background: transparent; text-align: center; font-family: sans-serif; }}
-                    #play {{ display: none; border: 1px solid #2c6c95; background: white; color: #245d80; border-radius: 20px; padding: 8px 18px; cursor: pointer; font-size: 13px; }}
-                </style>
-            </head>
-            <body>
-                <audio id="audio" preload="auto" playsinline>
-                    <source src="data:audio/mpeg;base64,{encoded}" type="audio/mpeg">
-                </audio>
-                <button id="play">🔊 Play Voice</button>
-                <script>
-                    const audio = document.getElementById("audio");
-                    const play = document.getElementById("play");
-                    audio.volume = 1.0;
-                    function tryPlay() {{
-                        const promise = audio.play();
-                        if (promise !== undefined) {{
-                            promise.catch(() => {{ play.style.display = "inline-block"; }});
-                        }}
-                    }}
-                    play.addEventListener("click", () => {{
-                        audio.currentTime = 0; audio.play(); play.style.display = "none";
-                    }});
-                    window.addEventListener("load", tryPlay);
-                    setTimeout(tryPlay, 400);
-                </script>
-            </body>
-            </html>
-            """,
-            height=height,
-            scrolling=False,
-        )
-    except Exception:
-        pass
-
 def make_speech_audio(text: str, output_file: Path):
     clean_text = clean_text_for_speech(text)
 
@@ -306,7 +258,6 @@ def make_speech_audio(text: str, output_file: Path):
 
     return None
 
-# Naitama na ang "ikalulugod" dito sa welcome text:
 WELCOME_TEXT = "Magandang araw! Ako po si Ka A-bot, ang Chatbot ng SSS Antipolo Branch. Para sa inyong mga katanungan, i-type lamang at ikalulugod ko na kayo po ay matugunan."
 make_speech_audio(WELCOME_TEXT, WELCOME_AUDIO_FILE)
 
@@ -318,11 +269,8 @@ def make_reply_voice(text: str):
 # ============================================================
 
 if st.session_state.voice_enabled and len(st.session_state.messages) == 0:
-    play_audio_component(
-        WELCOME_AUDIO_FILE,
-        f"welcome-{st.session_state.welcome_nonce}",
-        height=65,
-    )
+    if WELCOME_AUDIO_FILE.exists():
+        st.audio(str(WELCOME_AUDIO_FILE), format="audio/mp3", autoplay=True)
 
 # ============================================================
 # CHAT AREA
@@ -370,12 +318,8 @@ else:
                 unsafe_allow_html=True,
             )
 
-    if st.session_state.latest_reply_audio:
-        play_audio_component(
-            st.session_state.latest_reply_audio,
-            f"reply-{len(st.session_state.messages)}",
-            height=65,
-        )
+    if st.session_state.latest_reply_audio and st.session_state.latest_reply_audio.exists():
+        st.audio(str(st.session_state.latest_reply_audio), format="audio/mp3", autoplay=True)
         st.session_state.latest_reply_audio = None
 
 # ============================================================
@@ -429,17 +373,6 @@ if prompt:
         st.error("Hindi makapagsagot si Ka A-bot dahil wala pang Gemini API Key.")
     else:
         st.session_state.messages.append({"role": "user", "content": prompt})
-
-        safe_user_text = html.escape(prompt).replace("\n", "<br>")
-        st.markdown(
-            f"""
-            <div class="user-bubble">
-                <div class="label">👤 Kayo</div>
-                {safe_user_text}
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
 
         contents = []
         for msg in st.session_state.messages:
