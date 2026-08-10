@@ -64,6 +64,9 @@ if "messages" not in st.session_state:
 if "voice_enabled" not in st.session_state:
     st.session_state.voice_enabled = True
 
+if "welcomed" not in st.session_state:
+    st.session_state.welcomed = False
+
 if "welcome_nonce" not in st.session_state:
     st.session_state.welcome_nonce = 0
 
@@ -265,17 +268,17 @@ def make_reply_voice(text: str):
     return make_speech_audio(text, REPLY_AUDIO_FILE)
 
 def play_invisible_audio(audio_file: Path):
-    """Nagpe-play ng audio sa background nang walang lumilitaw na player bar sa screen"""
     if audio_file.exists():
         encoded = base64.b64encode(audio_file.read_bytes()).decode("utf-8")
         st.markdown(f'<audio autoplay src="data:audio/mp3;base64,{encoded}"></audio>', unsafe_allow_html=True)
 
 # ============================================================
-# WELCOME VOICE
+# WELCOME VOICE (ISANG BESES LANG TUSTRUGOT)
 # ============================================================
 
-if st.session_state.voice_enabled and len(st.session_state.messages) == 0:
+if st.session_state.voice_enabled and not st.session_state.welcomed:
     play_invisible_audio(WELCOME_AUDIO_FILE)
+    st.session_state.welcomed = True
 
 # ============================================================
 # CHAT AREA
@@ -349,6 +352,7 @@ with col2:
     if st.button("🔄 New User / End Service", use_container_width=True, key="new_user_button"):
         st.session_state.messages = []
         st.session_state.voice_enabled = True
+        st.session_state.welcomed = False
         st.session_state.welcome_nonce += 1
         st.rerun()
 
@@ -402,7 +406,7 @@ if prompt:
             if response.ok:
                 candidates = res_json.get("candidates", [])
                 if candidates:
-                    parts = candidates[0].get("content", {}).get("parts", [])
+                    parts = candidates[0].get("content", {}) .get("parts", [])
                     bot_reply = "".join(p.get("text", "") for p in parts if isinstance(p, dict)).strip()
 
                     if bot_reply:
