@@ -71,7 +71,7 @@ if "latest_reply_audio" not in st.session_state:
     st.session_state.latest_reply_audio = None
 
 # ============================================================
-# CSS — CLEAN KIOSK LAYOUT
+# CSS — CLEAN KIOSK LAYOUT & HIDDEN AUDIO PLAYER
 # ============================================================
 
 st.markdown(
@@ -87,6 +87,11 @@ st.markdown(
 
     header {
         background: transparent !important;
+    }
+
+    /* ITINAGO NITO ANG AUDIO PLAYER BAR PARA MALINIS ANG EKRAN */
+    div[data-testid="stAudio"] {
+        display: none !important;
     }
 
     .block-container {
