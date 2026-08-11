@@ -6,6 +6,8 @@ import html
 import asyncio
 import re
 from pathlib import Path
+import pypdf
+from docx import Document
 
 # ============================================================
 # KA A-BOT — SSS ANTIPOLO BRANCH
@@ -30,26 +32,61 @@ GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 GEMINI_MODEL = "gemini-3.6-flash"
 
 # ============================================================
-# SYSTEM PROMPT
+# LOAD INTERNAL SOURCES (PDF & WORD FILES)
+# ============================================================
+def load_internal_sources():
+    sources_dir = APP_DIR / "sources"
+    all_text = ""
+    
+    if not sources_dir.exists():
+        return "Walang nakitang internal sources folder o sadyang wala pang laman."
+        
+    for file_path in sources_dir.iterdir():
+        try:
+            # Kung PDF file
+            if file_path.suffix.lower() == ".pdf":
+                reader = pypdf.PdfReader(file_path)
+                for page in reader.pages:
+                    text = page.extract_text()
+                    if text:
+                        all_text += f"\n--- Galing sa PDF ({file_path.name}) ---\n" + text
+            
+            # Kung Word file (.docx)
+            elif file_path.suffix.lower() == ".docx":
+                doc = Document(file_path)
+                doc_text = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
+                all_text += f"\n--- Galing sa Word ({file_path.name}) ---\n" + doc_text
+        except Exception as e:
+            print(f"Error sa pagbasa ng {file_path.name}: {e}")
+            
+    return all_text
+
+INTERNAL_DOCS = load_internal_sources()
+
+# ============================================================
+# SYSTEM PROMPT (MAY PRIORITY SA INTERNAL FILES)
 # ============================================================
 
-SYSTEM_INSTRUCTION = """
+SYSTEM_INSTRUCTION = f"""
 Ikaw ang opisyal na si Ka A-bot, ang Chatbot ng SSS Antipolo Branch.
 Ang layunin mo ay magbigay ng tumpak, magalang, at mabilis na impormasyon sa mga kliyente.
 
-Sundin mo nang mahigpit ang mga alituntuning ito:
+MAHIGPIT NA ALITUNTUNIN SA PAGHANAP NG SAGOT:
+1. INTERNAL FILES MUNA (PRIORITY): 
+   Bago ka maghanap sa internet o sa sss.gov.ph, DAPAT mong suriin at hanapin muna ang sagot sa loob ng mga Internal Source Documents na nakalista sa ibaba. Kung nandoon ang sagot, gamitin ito bilang pangunahing basehan.
+   
+   --- MGA INTERNAL DOCUMENTS NG SSS ANTIPOLO ---
+   {INTERNAL_DOCS}
+   -----------------------------------------------
 
-1. Wika at Porma ng Tanong (Language Matching Rule):
+2. SSS.GOV.PH / ONLINE SOURCES (SECONDARY):
+   Kung ang impormasyon ay HINDI matagpuan sa mga Internal Documents sa itaas, saka lamang hanapin ito sa opisyal na website ng SSS (sss.gov.ph) o iba pang reliable online sources.
+
+3. Wika at Porma ng Tanong (Language Matching Rule):
 - Unawain ang mga tanong kahit ito ay nasa estilong "jejemon", may mga typographical error (typos), o nakasulat sa English.
 - Kung ang tanong ay nakasulat sa English, DAPAT mong sagutin ito sa English. Kung sa Tagalog o Taglish, sagutin ito sa Tagalog/Taglish.
 
-2. Pag-handle ng mga Tanong at Implicit/Bitin na Tanong:
-- Pangunahing pag-aralan at kunin ang sagot mula sa opisyal na website ng SSS (sss.gov.ph).
-- Mag-ingat sa mga tanong na mukhang maikling pahayag, bitin, o implicit ngunit maaari namang mai-konekta sa serbisyo ng SSS. (Halimbawa: "Bakit di pumasok hulog ko?", "May walk in ba kayo?")
-- Huwag itong tanggihan. Sa halip, iugnay at unawain ito bilang tanong patungkol sa mga transaksyon ng SSS.
-- Para sa mga tanong na talagang walang kinalaman sa SSS, magalang na sabihin na tanging mga tanong na may kinalaman sa SSS service lamang ang iyong masasagot.
-
-3. FORMAT NG PAALALA:
+4. FORMAT NG PAALALA:
 Ilagay sa pinakadulo ng Bawat Tugon:
 💡 Paalala: Kung tapos ka nang magtanong, mangyaring i-click ang refresh/End service button sa ibaba upang mabura ang ating usapan at mapanatiling ligtas at pribado ang iyong mga impormasyon para sa susunod na gagamit.
 """
@@ -273,7 +310,7 @@ def play_invisible_audio(audio_file: Path):
         st.markdown(f'<audio autoplay src="data:audio/mp3;base64,{encoded}"></audio>', unsafe_allow_html=True)
 
 # ============================================================
-# WELCOME VOICE (ISANG BESES LANG TUSTRUGOT)
+# WELCOME VOICE (ISANG BESES LANG TUMUGTOG)
 # ============================================================
 
 if st.session_state.voice_enabled and not st.session_state.welcomed:
@@ -406,7 +443,7 @@ if prompt:
             if response.ok:
                 candidates = res_json.get("candidates", [])
                 if candidates:
-                    parts = candidates[0].get("content", {}) .get("parts", [])
+                    parts = candidates[0].get("content", {}).get("parts", [])
                     bot_reply = "".join(p.get("text", "") for p in parts if isinstance(p, dict)).strip()
 
                     if bot_reply:
