@@ -2,3 +2,5 @@ streamlit
 requests
 edge-tts
 gTTS
+pypdf
+python-docx
