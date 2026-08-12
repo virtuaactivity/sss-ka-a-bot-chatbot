@@ -51,7 +51,7 @@ Sundin mo nang mahigpit ang mga alituntuning ito:
 
 3. FORMAT NG PAALALA:
 Ilagay sa pinakadulo ng Bawat Tugon:
-💡 Paalala: Kung tapos ka nang magtanong, mangyaring i-click ang refresh/End service button sa ibaba upang mabura ang ating usapan at mapanatiling ligtas at pribado ang iyong mga impormasyon para sa susunod na gagamit.
+💡 Paalala: Kung tapos ka nang magtanong, mangyaring i-click ang New User/End Service button sa ibaba upang mabura ang ating usapan at mapanatiling ligtas at pribado ang iyong mga impormasyon para sa susunod na gagamit.
 """
 
 # ============================================================
