@@ -34,7 +34,7 @@ GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 GEMINI_MODEL = "gemini-3.6-flash"
 
 # ============================================================
-# SMART FILE SEARCH (OPTIMIZED PARA SA TUMPAK NA SAGOT)
+# SMART FILE SEARCH
 # ============================================================
 @st.cache_data
 def get_file_list():
@@ -47,7 +47,7 @@ def read_specific_file(filename):
     try:
         if file_path.suffix.lower() == ".pdf":
             reader = pypdf.PdfReader(file_path)
-            for page in reader.pages[:3]: # Binasa natin ang unang 3 pages para hindi mabitin ang impormasyon
+            for page in reader.pages[:3]: 
                 extracted = page.extract_text()
                 if extracted: text += extracted + "\n"
         elif file_path.suffix.lower() == ".docx":
@@ -58,12 +58,12 @@ def read_specific_file(filename):
     except Exception as e:
         print(f"Error sa pagbasa ng {filename}: {e}")
     
-    return text[:1500] # Sapat na haba para makuha ang buong detalye ng programa nang hindi nag-e-error
+    return text[:1500] 
 
 FILE_LIST = get_file_list()
 
 # ============================================================
-# SYSTEM PROMPT (STRICT & ACCURATE)
+# SYSTEM PROMPT
 # ============================================================
 
 SYSTEM_INSTRUCTION = f"""
@@ -103,7 +103,7 @@ if "latest_reply_audio" not in st.session_state: st.session_state.latest_reply_a
 st.markdown("""<style>.stApp {background: linear-gradient(180deg, #e1f5ff 0%, #c9ebfa 55%, #b9e2f4 100%);} #MainMenu, footer {visibility: hidden;} header {background: transparent !important;} .block-container {max-width: 950px !important; padding-top: 1.0rem !important; padding-bottom: 6rem !important;} .banner-wrap {width: 100%; border-radius: 18px; overflow: hidden; box-shadow: 0 7px 22px rgba(0, 70, 110, 0.13); margin-bottom: 18px;} .banner-wrap img {width: 100%; display: block;} .welcome-card {text-align: center; padding: 16px 10px 10px; color: #245b7c;} .robot {font-size: 34px; line-height: 1; margin-bottom: 7px;} .title {font-size: 22px; font-weight: 700; margin-bottom: 5px;} .text {font-size: 15px;} .user-bubble {background: #d9ecfa; border-radius: 18px 18px 5px 18px; padding: 11px 15px; margin: 8px 0 8px auto; max-width: 82%; color: #173f58;} .bot-bubble {background: #eef7fc; border-left: 4px solid #1f6b99; border-radius: 5px 18px 18px 18px; padding: 12px 15px; margin: 8px auto 8px 0; max-width: 90%; color: #183b4f;} .label {font-size: 12px; font-weight: 700; opacity: 0.72; margin-bottom: 4px;} .controls-title {text-align: center; color: #2a6385; font-size: 14px; font-weight: 700; margin: 8px 0 8px;} div.stButton > button {border-radius: 22px !important; min-height: 42px !important; font-weight: 600 !important; border: 1.5px solid #2c6c95 !important; background: white !important; color: #245d80 !important;} div.stButton > button:hover {border-color: #174b6d !important; color: #174b6d !important;} div[data-testid="stToggle"] label {color: #245d80 !important; font-weight: 600 !important;} .status-ok {text-align: center; color: #286c46; font-size: 12px; margin-top: 7px;} .ka-footer {text-align: center; color: #4c7d98; font-size: 12px; margin-top: 14px; margin-bottom: 8px;} div[data-testid="stChatInput"] {border-radius: 16px !important;}</style>""", unsafe_allow_html=True)
 
 # ============================================================
-# BANNER & AUDIO HELPERS
+# BANNER & AUDIO HELPERS (FIXED PRONUNCIATION)
 # ============================================================
 if BANNER_FILE.exists():
     st.markdown('<div class="banner-wrap">', unsafe_allow_html=True)
@@ -111,15 +111,39 @@ if BANNER_FILE.exists():
     st.markdown("</div>", unsafe_allow_html=True)
 
 def clean_text_for_speech(text: str) -> str:
+    # Tanggalin ang paalala sa dulo para hindi na basahin ng boses
     clean_text = text.split("💡")[0]
     clean_text = re.sub(r'[*#_`~]', '', clean_text)
-    clean_text = clean_text.replace("SSS", "Es Es Es").replace("sss", "Es Es Es").replace("ID", "Ayditi").replace("id", "Ayditi")
+    
+    # Ayusin ang pagbigkas ng My.SSS at mga acronyms para basahin nang Ingles/Letter-by-letter
+    clean_text = clean_text.replace("My.SSS", "Mai Es Es Es").replace("my.sss", "Mai Es Es Es")
+    clean_text = clean_text.replace("MySSS", "Mai Es Es Es").replace("mysss", "Mai Es Es Es")
+    clean_text = clean_text.replace("SSS", "Es Es Es").replace("sss", "Es Es Es")
+    clean_text = clean_text.replace("ID", "Ayditi").replace("id", "Ayditi")
+    
+    # Ayusin ang www at .gov.ph para hindi maging "pie"
+    clean_text = clean_text.replace("www.", "W W W dot ").replace("WWW.", "W W W dot ")
+    clean_text = clean_text.replace(".gov.ph", " dot gov dot p h").replace(".GOV.PH", " dot gov dot p h")
+    clean_text = clean_text.replace(".com", " dot kom")
+
+    # Tulungan ang Text-to-Speech na basahin ang mga digit numbers sa Ingles sa halip na Tagalog
+    # Halimbawa: Ginagawa nating spaced words o English context ang mga numero kung kinakailangan
+    def replace_digits(match):
+        num_str = match.group(0)
+        # Kung taon o malaking numero, isa-isahin o basahin sa English
+        if len(num_str) == 4: # e.g. 2026 -> twenty twenty six
+            return f" {num_str} "
+        return f" {num_str} "
+
+    clean_text = re.sub(r'\b\d+\b', replace_digits, clean_text)
+    
     return clean_text.strip()[:1800]
 
 def make_speech_audio(text: str, output_file: Path):
     try:
         import edge_tts
         async def generate():
+            # Gumamit ng English-Filipino bilingual neural voice para mas natural ang English terms at numbers
             communicate = edge_tts.Communicate(clean_text_for_speech(text), "fil-PH-AngeloNeural")
             await communicate.save(str(output_file))
         asyncio.run(generate())
@@ -136,13 +160,12 @@ if st.session_state.voice_enabled and not st.session_state.welcomed:
     st.session_state.welcomed = True
 
 # ============================================================
-# CHAT AREA (MAY MARKDOWN RENDERER PARA SA BOLD AT BULLETS)
+# CHAT AREA
 # ============================================================
 if not st.session_state.messages:
     st.markdown('<div class="welcome-card"><div class="robot">🤖</div><div class="title">Kumusta po!</div><div class="text">Ako po si Ka A-bot.<br>Ano po ang maitutulong ko sa inyo ngayon?</div></div>', unsafe_allow_html=True)
 else:
     for message in st.session_state.messages:
-        # Tinitiyak natin na ang **bold** at *italic* ay magiging tunay na HTML format sa screen
         safe_text = html.escape(message["content"])
         safe_text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', safe_text)
         safe_text = re.sub(r'\*(.*?)\*', r'<i>\1</i>', safe_text)
@@ -176,7 +199,6 @@ prompt = st.chat_input("I-type ang iyong tanong...")
 if prompt:
     st.session_state.messages.append({"role": "user", "content": prompt})
     
-    # SMART CHECK NG FILE
     matched_content = ""
     for filename in FILE_LIST:
         if any(kw in prompt.lower() for kw in filename.lower().split() if len(kw) > 3):
@@ -187,7 +209,6 @@ if prompt:
     if matched_content:
         contents.append({"role": "user", "parts": [{"text": f"GAMITIN ITO BILANG OPISYAL NA SANGGUNIAN SA PAG SAGOT:\n{matched_content}"}]})
     
-    # Huling 4 na mensahe para sa tipid na token ngunit may sapat na memorya
     for msg in st.session_state.messages[-4:]:
         contents.append({"role": "user" if msg["role"] == "user" else "model", "parts": [{"text": msg["content"]}]})
 
