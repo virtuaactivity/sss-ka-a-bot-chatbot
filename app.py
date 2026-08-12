@@ -4,6 +4,7 @@ import json
 import base64
 import html
 import asyncio
+import time
 import re
 from pathlib import Path
 import pypdf
@@ -33,7 +34,7 @@ GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 GEMINI_MODEL = "gemini-3.6-flash"
 
 # ============================================================
-# SMART FILE SEARCH (HINDI BUMAGAL AT IIWAS SA TOKEN LIMIT)
+# SMART FILE SEARCH (MAGAAN NA PAGBASA PARA IIWAS SA 503 ERROR)
 # ============================================================
 @st.cache_data
 def get_file_list():
@@ -56,7 +57,7 @@ def read_specific_file(filename):
             text = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
     except Exception as e:
         print(f"Error sa pagbasa ng {filename}: {e}")
-    return text[:8000] # Safe character limit para hindi maubos ang free tokens
+    return text[:3000] # Binawasan para maging magaan sa server at iwas overload
 
 FILE_LIST = get_file_list()
 
@@ -399,7 +400,7 @@ else:
     st.warning('Wala pang Gemini API Key.')
 
 # ============================================================
-# CHAT INPUT + SMART SEARCH & GEMINI
+# CHAT INPUT + SMART SEARCH & GEMINI (MAY AUTO-RETRY SA 503)
 # ============================================================
 
 prompt = st.chat_input("I-type ang iyong tanong o concern tungkol sa SSS...")
@@ -410,10 +411,9 @@ if prompt:
     else:
         st.session_state.messages.append({"role": "user", "content": prompt})
 
-        # 1. SMART CHECK: Maghanap ng kaugnay na file base sa keyword ng tanong o filename
+        # 1. SMART CHECK: Maghanap ng kaugnay na file base sa keyword ng tanong
         matched_content = ""
         for filename in FILE_LIST:
-            # Suriin kung ang keyword mula sa file name ay tugma sa tanong
             file_keywords = re.findall(r'\w+', filename.lower())
             if any(kw in prompt.lower() for kw in file_keywords if len(kw) > 3):
                 matched_content = read_specific_file(filename)
@@ -422,7 +422,6 @@ if prompt:
         # 2. Buuin ang contents para kay Gemini
         contents = []
         
-        # Kung may nahanap na internal file, i-inject ito bilang sanggunian para masagot ang tanong nang hindi nag-e-error
         if matched_content:
             contents.append({
                 "role": "user",
@@ -445,7 +444,13 @@ if prompt:
 
         try:
             with st.spinner("Nag-iisip si Ka A-bot..."):
-                response = requests.post(url, headers=headers, json=payload, timeout=60)
+                response = None
+                # Auto-Retry Loop para iwas 503 Service Unavailable / High Demand error
+                for attempt in range(3):
+                    response = requests.post(url, headers=headers, json=payload, timeout=60)
+                    if response.status_code != 503:
+                        break
+                    time.sleep(2) # Maghintay ng 2 segundo bago subukang muli
             
             try:
                 res_json = response.json()
