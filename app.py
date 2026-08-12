@@ -34,7 +34,7 @@ GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 GEMINI_MODEL = "gemini-3.6-flash"
 
 # ============================================================
-# SMART FILE SEARCH (SINUSUPORTA NA RIN ANG .TXT FILES)
+# SMART FILE SEARCH (OPTIMIZED PARA SA TUMPAK NA SAGOT)
 # ============================================================
 @st.cache_data
 def get_file_list():
@@ -47,23 +47,23 @@ def read_specific_file(filename):
     try:
         if file_path.suffix.lower() == ".pdf":
             reader = pypdf.PdfReader(file_path)
-            for page in reader.pages[:2]: 
+            for page in reader.pages[:3]: # Binasa natin ang unang 3 pages para hindi mabitin ang impormasyon
                 extracted = page.extract_text()
                 if extracted: text += extracted + "\n"
         elif file_path.suffix.lower() == ".docx":
             doc = Document(file_path)
-            text = "\n".join([p.text for p in doc.paragraphs[:10] if p.text.strip()])
+            text = "\n".join([p.text for p in doc.paragraphs[:15] if p.text.strip()])
         elif file_path.suffix.lower() == ".txt":
             text = file_path.read_text(encoding="utf-8", errors="ignore")
     except Exception as e:
         print(f"Error sa pagbasa ng {filename}: {e}")
     
-    return text[:800] # ULTRA-EFFICIENT: 800 characters na lang para tipid na tipid sa tokens!
+    return text[:1500] # Sapat na haba para makuha ang buong detalye ng programa nang hindi nag-e-error
 
 FILE_LIST = get_file_list()
 
 # ============================================================
-# SYSTEM PROMPT (STRICT & DETAILED)
+# SYSTEM PROMPT (STRICT & ACCURATE)
 # ============================================================
 
 SYSTEM_INSTRUCTION = f"""
@@ -79,12 +79,12 @@ MAHIGPIT NA ALITUNTUNIN:
 - Kung English ang tanong, sumagot sa English. Kung Tagalog o Taglish, sumagot sa Tagalog/Taglish.
 
 2. Pag-handle ng mga Tanong (STRICT):
-- Pangunahing pag-aralan ang sagot mula sa internal documents (kung may match) at sa opisyal na website ng SSS (sss.gov.ph).
+- KAPAG MAY IBINIGAY NA INTERNAL REFERENCE DOCUMENT SA TANONG, DAPAT YON ANG UNAHING SURIIN AT GAMITIN. Kopyahin nang tumpak ang mga detalye mula rito at huwag mag-imbento o manghula.
 - Mag-ingat sa mga tanong na bitin o implicit (hal. "Bakit di pumasok hulog ko?", "May walk in ba?"). Iugnay at unawain ito bilang tanong patungkol sa mga transaksyon ng SSS.
 - KUNG ANG TANONG AY WALANG KINALAMAN SA SSS, magalang na sabihin na tanging mga tanong na may kinalaman sa SSS service lamang ang iyong masasagot. Huwag magbigay ng impormasyon sa mga bagay na labas sa SSS.
 
 3. Paghanap ng Impormasyon:
-- Unahin ang Internal Documents kung ang tanong ay tungkol sa mga programa.
+- Unahin ang Internal Documents kung ang tanong ay tungkol sa mga programa (tulad ng Uplift Program).
 - Kung wala sa files at wala sa sss.gov.ph, magalang na sabihin na makipag-ugnayan sa SSS Antipolo Branch.
 
 4. FORMAT NG PAALALA:
@@ -136,15 +136,23 @@ if st.session_state.voice_enabled and not st.session_state.welcomed:
     st.session_state.welcomed = True
 
 # ============================================================
-# CHAT AREA
+# CHAT AREA (MAY MARKDOWN RENDERER PARA SA BOLD AT BULLETS)
 # ============================================================
 if not st.session_state.messages:
     st.markdown('<div class="welcome-card"><div class="robot">🤖</div><div class="title">Kumusta po!</div><div class="text">Ako po si Ka A-bot.<br>Ano po ang maitutulong ko sa inyo ngayon?</div></div>', unsafe_allow_html=True)
 else:
     for message in st.session_state.messages:
-        safe_text = html.escape(message["content"]).replace("\n", "<br>")
-        if message["role"] == "user": st.markdown(f'<div class="user-bubble"><div class="label">👤 Kayo</div>{safe_text}</div>', unsafe_allow_html=True)
-        else: st.markdown(f'<div class="bot-bubble"><div class="label">🤖 Ka A-bot</div>{safe_text}</div>', unsafe_allow_html=True)
+        # Tinitiyak natin na ang **bold** at *italic* ay magiging tunay na HTML format sa screen
+        safe_text = html.escape(message["content"])
+        safe_text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', safe_text)
+        safe_text = re.sub(r'\*(.*?)\*', r'<i>\1</i>', safe_text)
+        safe_text = safe_text.replace("\n", "<br>")
+
+        if message["role"] == "user": 
+            st.markdown(f'<div class="user-bubble"><div class="label">👤 Kayo</div>{safe_text}</div>', unsafe_allow_html=True)
+        else: 
+            st.markdown(f'<div class="bot-bubble"><div class="label">🤖 Ka A-bot</div>{safe_text}</div>', unsafe_allow_html=True)
+            
     if st.session_state.latest_reply_audio:
         play_invisible_audio(st.session_state.latest_reply_audio)
         st.session_state.latest_reply_audio = None
@@ -161,12 +169,14 @@ with col2:
         st.session_state.messages = []; st.session_state.welcomed = False; st.rerun()
 
 # ============================================================
-# GEMINI CHAT LOGIC (OPTIMIZED WITH -4 HISTORY LIMIT)
+# GEMINI CHAT LOGIC
 # ============================================================
 prompt = st.chat_input("I-type ang iyong tanong...")
 
 if prompt:
     st.session_state.messages.append({"role": "user", "content": prompt})
+    
+    # SMART CHECK NG FILE
     matched_content = ""
     for filename in FILE_LIST:
         if any(kw in prompt.lower() for kw in filename.lower().split() if len(kw) > 3):
@@ -175,9 +185,9 @@ if prompt:
 
     contents = []
     if matched_content:
-        contents.append({"role": "user", "parts": [{"text": f"GAMITIN ITONG REFERENCE: {matched_content}"}]})
+        contents.append({"role": "user", "parts": [{"text": f"GAMITIN ITO BILANG OPISYAL NA SANGGUNIAN SA PAG SAGOT:\n{matched_content}"}]})
     
-    # KINUHA LANG ANG HULING 4 NA MENSAHE PARA SOBRANG TIPID SA TOKENS
+    # Huling 4 na mensahe para sa tipid na token ngunit may sapat na memorya
     for msg in st.session_state.messages[-4:]:
         contents.append({"role": "user" if msg["role"] == "user" else "model", "parts": [{"text": msg["content"]}]})
 
