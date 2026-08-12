@@ -34,7 +34,7 @@ GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 GEMINI_MODEL = "gemini-3.6-flash"
 
 # ============================================================
-# SMART FILE SEARCH
+# SMART FILE SEARCH (MAS MALAWAK NA PAGBASA PARA HINDI BITIN)
 # ============================================================
 @st.cache_data
 def get_file_list():
@@ -47,23 +47,23 @@ def read_specific_file(filename):
     try:
         if file_path.suffix.lower() == ".pdf":
             reader = pypdf.PdfReader(file_path)
-            for page in reader.pages[:3]: 
+            for page in reader.pages[:4]: # Binasa ang unang 4 pages para kumpleto ang detalye
                 extracted = page.extract_text()
                 if extracted: text += extracted + "\n"
         elif file_path.suffix.lower() == ".docx":
             doc = Document(file_path)
-            text = "\n".join([p.text for p in doc.paragraphs[:15] if p.text.strip()])
+            text = "\n".join([p.text for p in doc.paragraphs[:20] if p.text.strip()])
         elif file_path.suffix.lower() == ".txt":
             text = file_path.read_text(encoding="utf-8", errors="ignore")
     except Exception as e:
         print(f"Error sa pagbasa ng {filename}: {e}")
     
-    return text[:1500] 
+    return text[:2500] # Tumaas nang kaunti para siguradong hindi mawala ang ibang rules
 
 FILE_LIST = get_file_list()
 
 # ============================================================
-# SYSTEM PROMPT
+# SYSTEM PROMPT (MAS MAHIGPIT AT CONSISTENT)
 # ============================================================
 
 SYSTEM_INSTRUCTION = f"""
@@ -76,15 +76,15 @@ MAHIGPIT NA ALITUNTUNIN:
 
 1. Wika at Porma ng Tanong (Language Matching Rule):
 - Unawain ang mga tanong kahit nasa estilong "jejemon", may typos, o naka-English.
-- Kung English ang tanong, sumagot sa English. Kung Tagalog o Taglish, sumagot sa Tagalog/Taglish.
+- Kung English ang tanong, sumagot sa English. Kung Tagalog o Taglish, sagutin ito sa Tagalog/Taglish.
 
-2. Pag-handle ng mga Tanong (STRICT):
-- KAPAG MAY IBINIGAY NA INTERNAL REFERENCE DOCUMENT SA TANONG, DAPAT YON ANG UNAHING SURIIN AT GAMITIN. Kopyahin nang tumpak ang mga detalye mula rito at huwag mag-imbento o manghula.
+2. Pag-handle ng mga Tanong (STRICT & CONSISTENT):
+- KAPAG MAY IBINIGAY NA INTERNAL REFERENCE DOCUMENT SA TANONG, DAPAT YON ANG UNAHING SURIIN AT GAMITIN. Kopyahin nang tumpak ang mga detalye mula rito. Huwag magbago ng sagot sa parehong tanong.
 - Mag-ingat sa mga tanong na bitin o implicit (hal. "Bakit di pumasok hulog ko?", "May walk in ba?"). Iugnay at unawain ito bilang tanong patungkol sa mga transaksyon ng SSS.
-- KUNG ANG TANONG AY WALANG KINALAMAN SA SSS, magalang na sabihin na tanging mga tanong na may kinalaman sa SSS service lamang ang iyong masasagot. Huwag magbigay ng impormasyon sa mga bagay na labas sa SSS.
+- KUNG ANG TANONG AY WALANG KINALAMAN SA SSS, magalang na sabihin na tanging mga tanong na may kinalaman sa SSS service lamang ang iyong masasagot.
 
 3. Paghanap ng Impormasyon:
-- Unahin ang Internal Documents kung ang tanong ay tungkol sa mga programa (tulad ng Uplift Program).
+- Unahin ang Internal Documents kung ang tanong ay tungkol sa mga programa (tulad ng Uplift Program). Ibigay ang buong detalye mula sa file nang malinaw at sunud-sunod.
 - Kung wala sa files at wala sa sss.gov.ph, magalang na sabihin na makipag-ugnayan sa SSS Antipolo Branch.
 
 4. FORMAT NG PAALALA:
@@ -103,7 +103,7 @@ if "latest_reply_audio" not in st.session_state: st.session_state.latest_reply_a
 st.markdown("""<style>.stApp {background: linear-gradient(180deg, #e1f5ff 0%, #c9ebfa 55%, #b9e2f4 100%);} #MainMenu, footer {visibility: hidden;} header {background: transparent !important;} .block-container {max-width: 950px !important; padding-top: 1.0rem !important; padding-bottom: 6rem !important;} .banner-wrap {width: 100%; border-radius: 18px; overflow: hidden; box-shadow: 0 7px 22px rgba(0, 70, 110, 0.13); margin-bottom: 18px;} .banner-wrap img {width: 100%; display: block;} .welcome-card {text-align: center; padding: 16px 10px 10px; color: #245b7c;} .robot {font-size: 34px; line-height: 1; margin-bottom: 7px;} .title {font-size: 22px; font-weight: 700; margin-bottom: 5px;} .text {font-size: 15px;} .user-bubble {background: #d9ecfa; border-radius: 18px 18px 5px 18px; padding: 11px 15px; margin: 8px 0 8px auto; max-width: 82%; color: #173f58;} .bot-bubble {background: #eef7fc; border-left: 4px solid #1f6b99; border-radius: 5px 18px 18px 18px; padding: 12px 15px; margin: 8px auto 8px 0; max-width: 90%; color: #183b4f;} .label {font-size: 12px; font-weight: 700; opacity: 0.72; margin-bottom: 4px;} .controls-title {text-align: center; color: #2a6385; font-size: 14px; font-weight: 700; margin: 8px 0 8px;} div.stButton > button {border-radius: 22px !important; min-height: 42px !important; font-weight: 600 !important; border: 1.5px solid #2c6c95 !important; background: white !important; color: #245d80 !important;} div.stButton > button:hover {border-color: #174b6d !important; color: #174b6d !important;} div[data-testid="stToggle"] label {color: #245d80 !important; font-weight: 600 !important;} .status-ok {text-align: center; color: #286c46; font-size: 12px; margin-top: 7px;} .ka-footer {text-align: center; color: #4c7d98; font-size: 12px; margin-top: 14px; margin-bottom: 8px;} div[data-testid="stChatInput"] {border-radius: 16px !important;}</style>""", unsafe_allow_html=True)
 
 # ============================================================
-# BANNER & AUDIO HELPERS (FIXED PRONUNCIATION)
+# BANNER & AUDIO HELPERS (FIXED PRONUNCIATION & NUMBERS)
 # ============================================================
 if BANNER_FILE.exists():
     st.markdown('<div class="banner-wrap">', unsafe_allow_html=True)
@@ -111,31 +111,37 @@ if BANNER_FILE.exists():
     st.markdown("</div>", unsafe_allow_html=True)
 
 def clean_text_for_speech(text: str) -> str:
-    # Tanggalin ang paalala sa dulo para hindi na basahin ng boses
     clean_text = text.split("💡")[0]
+    
+    # Linisin ang mga Markdown headers tulad ng ### at asterisks
+    clean_text = re.sub(r'#{1,6}\s*', '', clean_text)
     clean_text = re.sub(r'[*#_`~]', '', clean_text)
     
-    # Ayusin ang pagbigkas ng My.SSS at mga acronyms para basahin nang Ingles/Letter-by-letter
+    # Pagbigkas ng My.SSS at mga Acronyms
     clean_text = clean_text.replace("My.SSS", "Mai Es Es Es").replace("my.sss", "Mai Es Es Es")
     clean_text = clean_text.replace("MySSS", "Mai Es Es Es").replace("mysss", "Mai Es Es Es")
     clean_text = clean_text.replace("SSS", "Es Es Es").replace("sss", "Es Es Es")
     clean_text = clean_text.replace("ID", "Ayditi").replace("id", "Ayditi")
     
-    # Ayusin ang www at .gov.ph para hindi maging "pie"
+    # Pagbigkas ng www at .gov.ph
     clean_text = clean_text.replace("www.", "W W W dot ").replace("WWW.", "W W W dot ")
     clean_text = clean_text.replace(".gov.ph", " dot gov dot p h").replace(".GOV.PH", " dot gov dot p h")
     clean_text = clean_text.replace(".com", " dot kom")
 
-    # Tulungan ang Text-to-Speech na basahin ang mga digit numbers sa Ingles sa halip na Tagalog
-    # Halimbawa: Ginagawa nating spaced words o English context ang mga numero kung kinakailangan
-    def replace_digits(match):
+    # CONVERT DIGIT NUMBERS TO ENGLISH WORDS PARA CONSISTENT SA BOSES
+    digit_map = {
+        '1': 'One', '2': 'Two', '3': 'Three', '4': 'Four', '5': 'Five',
+        '6': 'Six', '7': 'Seven', '8': 'Eight', '9': 'Nine', '0': 'Zero'
+    }
+    
+    def translate_digits(match):
         num_str = match.group(0)
-        # Kung taon o malaking numero, isa-isahin o basahin sa English
-        if len(num_str) == 4: # e.g. 2026 -> twenty twenty six
-            return f" {num_str} "
-        return f" {num_str} "
+        # Kung single digit (tulad ng 1., 2., 3. sa listahan), i-convert sa English word
+        if len(num_str) == 1 and num_str in digit_map:
+            return digit_map[num_str]
+        return num_str
 
-    clean_text = re.sub(r'\b\d+\b', replace_digits, clean_text)
+    clean_text = re.sub(r'\b\d+\b', translate_digits, clean_text)
     
     return clean_text.strip()[:1800]
 
@@ -143,7 +149,6 @@ def make_speech_audio(text: str, output_file: Path):
     try:
         import edge_tts
         async def generate():
-            # Gumamit ng English-Filipino bilingual neural voice para mas natural ang English terms at numbers
             communicate = edge_tts.Communicate(clean_text_for_speech(text), "fil-PH-AngeloNeural")
             await communicate.save(str(output_file))
         asyncio.run(generate())
@@ -160,13 +165,15 @@ if st.session_state.voice_enabled and not st.session_state.welcomed:
     st.session_state.welcomed = True
 
 # ============================================================
-# CHAT AREA
+# CHAT AREA (MALINIS NA RENDER NG MARKDOWN)
 # ============================================================
 if not st.session_state.messages:
     st.markdown('<div class="welcome-card"><div class="robot">🤖</div><div class="title">Kumusta po!</div><div class="text">Ako po si Ka A-bot.<br>Ano po ang maitutulong ko sa inyo ngayon?</div></div>', unsafe_allow_html=True)
 else:
     for message in st.session_state.messages:
         safe_text = html.escape(message["content"])
+        # Alisin ang mga ### headers sa visual chat box para maging malinis
+        safe_text = re.sub(r'#{1,6}\s*', '', safe_text)
         safe_text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', safe_text)
         safe_text = re.sub(r'\*(.*?)\*', r'<i>\1</i>', safe_text)
         safe_text = safe_text.replace("\n", "<br>")
@@ -207,7 +214,7 @@ if prompt:
 
     contents = []
     if matched_content:
-        contents.append({"role": "user", "parts": [{"text": f"GAMITIN ITO BILANG OPISYAL NA SANGGUNIAN SA PAG SAGOT:\n{matched_content}"}]})
+        contents.append({"role": "user", "parts": [{"text": f"GAMITIN ITO BILANG OPISYAL NA SANGGUNIAN SA PAG SAGOT (KOPYAHIN NG TUMPAK ANG MGA DETALYE):\n{matched_content}"}]})
     
     for msg in st.session_state.messages[-4:]:
         contents.append({"role": "user" if msg["role"] == "user" else "model", "parts": [{"text": msg["content"]}]})
