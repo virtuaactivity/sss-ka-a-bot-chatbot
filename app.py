@@ -21,6 +21,7 @@ st.set_page_config(
 )
 
 APP_DIR = Path(__file__).resolve().parent
+SOURCES_DIR = APP_DIR / "sources"
 BANNER_FILE = APP_DIR / "ka_abot_banner.png"
 WELCOME_AUDIO_FILE = APP_DIR / "ka_abot_welcome.mp3"
 REPLY_AUDIO_FILE = APP_DIR / "ka_abot_reply.mp3"
@@ -32,62 +33,54 @@ GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 GEMINI_MODEL = "gemini-3.6-flash"
 
 # ============================================================
-# LOAD INTERNAL SOURCES (NA MAY CACHE PARA HINDI BUMAGAL)
+# SMART FILE SEARCH (HINDI BUMAGAL AT IIWAS SA TOKEN LIMIT)
 # ============================================================
 @st.cache_data
-def load_internal_sources():
-    sources_dir = APP_DIR / "sources"
-    all_text = ""
-    
-    if not sources_dir.exists():
-        return "Walang nakitang internal sources folder o sadyang wala pang laman."
-        
-    for file_path in sources_dir.iterdir():
-        try:
-            # Kung PDF file
-            if file_path.suffix.lower() == ".pdf":
-                reader = pypdf.PdfReader(file_path)
-                for page in reader.pages:
-                    text = page.extract_text()
-                    if text:
-                        all_text += f"\n--- Galing sa PDF ({file_path.name}) ---\n" + text
-            
-            # Kung Word file (.docx)
-            elif file_path.suffix.lower() == ".docx":
-                doc = Document(file_path)
-                doc_text = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
-                all_text += f"\n--- Galing sa Word ({file_path.name}) ---\n" + doc_text
-        except Exception as e:
-            print(f"Error sa pagbasa ng {file_path.name}: {e}")
-            
-    return all_text
+def get_file_list():
+    if not SOURCES_DIR.exists():
+        return []
+    return [f.name for f in SOURCES_DIR.iterdir() if f.suffix.lower() in [".pdf", ".docx"]]
 
-INTERNAL_DOCS = load_internal_sources()
+def read_specific_file(filename):
+    file_path = SOURCES_DIR / filename
+    text = ""
+    try:
+        if file_path.suffix.lower() == ".pdf":
+            reader = pypdf.PdfReader(file_path)
+            for page in reader.pages:
+                extracted = page.extract_text()
+                if extracted:
+                    text += extracted + "\n"
+        elif file_path.suffix.lower() == ".docx":
+            doc = Document(file_path)
+            text = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
+    except Exception as e:
+        print(f"Error sa pagbasa ng {filename}: {e}")
+    return text[:8000] # Safe character limit para hindi maubos ang free tokens
+
+FILE_LIST = get_file_list()
 
 # ============================================================
-# SYSTEM PROMPT (MAY PRIORITY SA INTERNAL FILES)
+# SYSTEM PROMPT
 # ============================================================
 
 SYSTEM_INSTRUCTION = f"""
 Ikaw ang opisyal na si Ka A-bot, ang Chatbot ng SSS Antipolo Branch.
 Ang layunin mo ay magbigay ng tumpak, magalang, at mabilis na impormasyon sa mga kliyente.
 
+May access ka sa mga sumusunod na internal documents ng ating branch: {', '.join(FILE_LIST) if FILE_LIST else 'Wala pang files'}.
+
 MAHIGPIT NA ALITUNTUNIN SA PAGHANAP NG SAGOT:
 1. INTERNAL FILES MUNA (PRIORITY): 
-   Bago ka maghanap sa internet o sa sss.gov.ph, DAPAT mong suriin at hanapin muna ang sagot sa loob ng mga Internal Source Documents na nakalista sa ibaba. Kung nandoon ang sagot (tulad ng SSS Uplift Program o iba pang guidelines), gamitin ito bilang pangunahing basehan.
-   
-   --- MGA INTERNAL DOCUMENTS NG SSS ANTIPOLO ---
-   {INTERNAL_DOCS}
-   -----------------------------------------------
+   - Kapag nagtanong ang kliyente tungkol sa mga programa, benepisyo, o polisiya na maaaring partikular o hindi madaling makita online (tulad ng mga lokal na programa, advisory, o branch-specific guidelines), **DAPAT mong suriin muna ang mga Internal Documents** kapag ibinigay sa reference.
+   - HUWAG AGAD magsasabi ng "wala kaming ganyang program" o "hindi ko alam" nang hindi sinusuri ang mga ito. Kung nakasaad sa reference files ang tungkol dito, iyon ang gamiting batayan.
+   - Kung wala talaga sa internal files o hindi ito tungkol sa branch-specific programs, saka lamang tumingin sa sss.gov.ph o online sources.
 
-2. SSS.GOV.PH / ONLINE SOURCES (SECONDARY):
-   Kung ang impormasyon ay HINDI matagpuan sa mga Internal Documents sa itaas, saka lamang hanapin ito sa opisyal na website ng SSS (sss.gov.ph) o iba pang reliable online sources.
-
-3. Wika at Porma ng Tanong (Language Matching Rule):
+2. Wika at Porma ng Tanong (Language Matching Rule):
 - Unawain ang mga tanong kahit ito ay nasa estilong "jejemon", may mga typographical error (typos), o nakasulat sa English.
 - Kung ang tanong ay nakasulat sa English, DAPAT mong sagutin ito sa English. Kung sa Tagalog o Taglish, sagutin ito sa Tagalog/Taglish.
 
-4. FORMAT NG PAALALA:
+3. FORMAT NG PAALALA:
 Ilagay sa pinakadulo ng Bawat Tugon:
 💡 Paalala: Kung tapos ka nang magtanong, mangyaring i-click ang refresh/End service button sa ibaba upang mabura ang ating usapan at mapanatiling ligtas at pribado ang iyong mga impormasyon para sa susunod na gagamit.
 """
@@ -406,7 +399,7 @@ else:
     st.warning('Wala pang Gemini API Key.')
 
 # ============================================================
-# CHAT INPUT + GEMINI
+# CHAT INPUT + SMART SEARCH & GEMINI
 # ============================================================
 
 prompt = st.chat_input("I-type ang iyong tanong o concern tungkol sa SSS...")
@@ -417,7 +410,25 @@ if prompt:
     else:
         st.session_state.messages.append({"role": "user", "content": prompt})
 
+        # 1. SMART CHECK: Maghanap ng kaugnay na file base sa keyword ng tanong o filename
+        matched_content = ""
+        for filename in FILE_LIST:
+            # Suriin kung ang keyword mula sa file name ay tugma sa tanong
+            file_keywords = re.findall(r'\w+', filename.lower())
+            if any(kw in prompt.lower() for kw in file_keywords if len(kw) > 3):
+                matched_content = read_specific_file(filename)
+                break
+
+        # 2. Buuin ang contents para kay Gemini
         contents = []
+        
+        # Kung may nahanap na internal file, i-inject ito bilang sanggunian para masagot ang tanong nang hindi nag-e-error
+        if matched_content:
+            contents.append({
+                "role": "user",
+                "parts": [{"text": f"[INTERNAL REFERENCE DOCUMENT FOUND]:\n{matched_content}\n[END OF REFERENCE]"}]
+            })
+
         for msg in st.session_state.messages:
             contents.append({
                 "role": "user" if msg["role"] == "user" else "model",
