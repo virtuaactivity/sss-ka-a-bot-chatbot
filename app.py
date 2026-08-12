@@ -32,8 +32,9 @@ GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 GEMINI_MODEL = "gemini-3.6-flash"
 
 # ============================================================
-# LOAD INTERNAL SOURCES (PDF & WORD FILES)
+# LOAD INTERNAL SOURCES (NA MAY CACHE PARA HINDI BUMAGAL)
 # ============================================================
+@st.cache_data
 def load_internal_sources():
     sources_dir = APP_DIR / "sources"
     all_text = ""
