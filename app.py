@@ -8,7 +8,6 @@ import re
 import csv
 from pathlib import Path
 from datetime import datetime, date
-from streamlit_autorefresh import st_autorefresh
 
 # ============================================================
 # ANTIPOLO-BOT — SSS ANTIPOLO BRANCH
@@ -20,9 +19,6 @@ st.set_page_config(
     layout="centered",
     initial_sidebar_state="collapsed",
 )
-
-# Auto-refresh check every 10 seconds para ma-monitor ang inactivity ng kiosk
-st_autorefresh(interval=10000, key="kiosk_inactivity_monitor")
 
 APP_DIR = Path(__file__).resolve().parent
 BANNER_FILE = APP_DIR / "ka_abot_banner.png"
@@ -71,7 +67,7 @@ def record_transaction():
 
 def get_ledger_stats():
     today_str = date.today().strftime("%Y-%m-%d")
-    current_month_prefix = today_str[:7] # Halimbawa: "2026-06"
+    current_month_prefix = today_str[:7] # Halimbawa: "2026-08"
     total_all_time = 0
     today_count = 0
     month_count = 0
@@ -80,7 +76,7 @@ def get_ledger_stats():
         try:
             with open(LEDGER_CSV, mode="r", encoding="utf-8") as f:
                 reader = csv.reader(f)
-                header = next(reader, None) # Laktawan ang header
+                header = next(reader, None)
                 for row in reader:
                     if len(row) >= 2:
                         d_str, count_str = row[0], int(row[1])
@@ -132,7 +128,7 @@ Ilagay sa pinakadulo ng Bawat Tugon:
 """
 
 # ============================================================
-# SESSION STATE & INACTIVITY CHECK (AUTO-RESET)
+# SESSION STATE & INACTIVITY CHECK
 # ============================================================
 
 if "messages" not in st.session_state:
@@ -153,7 +149,7 @@ if "latest_reply_audio" not in st.session_state:
 if "last_activity" not in st.session_state:
     st.session_state.last_activity = datetime.now()
 
-# INACTIVITY TIMEOUT: Kapag lumipas ang 2 minuto (120 seconds) na walang galaw, awtomatikong mag-reset at i-record sa ledger
+# Inactivity auto-reset check kapag may nag-interact o nag-load ulit
 INACTIVITY_LIMIT_SECONDS = 120 
 if len(st.session_state.messages) > 0:
     elapsed_time = (datetime.now() - st.session_state.last_activity).total_seconds()
@@ -470,7 +466,7 @@ with col2:
         st.rerun() if hasattr(st, "rerun") else st.experimental_rerun()
 
 # ============================================================
-# API KEY STATUS & DAILY/MONTHLY LEDGER STATS
+# API KEY STATUS & LEDGER STATS
 # ============================================================
 
 API_KEY_READY = isinstance(GEMINI_API_KEY, str) and bool(GEMINI_API_KEY.strip())
