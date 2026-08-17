@@ -5,7 +5,10 @@ import base64
 import html
 import asyncio
 import re
+import csv
 from pathlib import Path
+from datetime import datetime, date
+from streamlit_autorefresh import st_autorefresh
 
 # ============================================================
 # ANTIPOLO-BOT — SSS ANTIPOLO BRANCH
@@ -18,20 +21,84 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+# Auto-refresh check every 10 seconds para ma-monitor ang inactivity ng kiosk
+st_autorefresh(interval=10000, key="kiosk_inactivity_monitor")
+
 APP_DIR = Path(__file__).resolve().parent
 BANNER_FILE = APP_DIR / "ka_abot_banner.png"
 WELCOME_AUDIO_FILE = APP_DIR / "ka_abot_welcome.mp3"
 REPLY_AUDIO_FILE = APP_DIR / "ka_abot_reply.mp3"
+LEDGER_CSV = APP_DIR / "bot_ledger.csv"
 
 # ============================================================
-# GEMINI API KEY
+# LEDGER / DAILY TRANSACTION TRACKER HELPERS (EXCEL COMPATIBLE)
+# ============================================================
+
+def record_transaction():
+    today_str = date.today().strftime("%Y-%m-%d")
+    rows = []
+    updated = False
+    
+    if LEDGER_CSV.exists():
+        try:
+            with open(LEDGER_CSV, mode="r", encoding="utf-8") as f:
+                reader = csv.reader(f)
+                header = next(reader, None)
+                if header:
+                    rows.append(header)
+                    for row in reader:
+                        if len(row) >= 2:
+                            d_str, count_str = row[0], row[1]
+                            if d_str == today_str:
+                                rows.append([d_str, str(int(count_str) + 1)])
+                                updated = True
+                            else:
+                                rows.append([d_str, count_str])
+        except Exception:
+            pass
+
+    if not updated:
+        if not rows:
+            rows.append(["Date", "Daily_Users"])
+        rows.append([today_str, "1"])
+
+    try:
+        with open(LEDGER_CSV, mode="w", encoding="utf-8", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerows(rows)
+    except Exception:
+        pass
+
+def get_ledger_stats():
+    today_str = date.today().strftime("%Y-%m-%d")
+    current_month_prefix = today_str[:7] # Halimbawa: "2026-06"
+    total_all_time = 0
+    today_count = 0
+    month_count = 0
+    
+    if LEDGER_CSV.exists():
+        try:
+            with open(LEDGER_CSV, mode="r", encoding="utf-8") as f:
+                reader = csv.reader(f)
+                header = next(reader, None) # Laktawan ang header
+                for row in reader:
+                    if len(row) >= 2:
+                        d_str, count_str = row[0], int(row[1])
+                        total_all_time += count_str
+                        if d_str == today_str:
+                            today_count = count_str
+                        if d_str.startswith(current_month_prefix):
+                            month_count += count_str
+        except Exception:
+            pass
+            
+    return total_all_time, today_count, month_count
+
+# ============================================================
+# GEMINI API KEY & SYSTEM PROMPT
 # ============================================================
 GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 GEMINI_MODEL = "gemini-3.6-flash"
-
-# ============================================================
-# SYSTEM PROMPT
-# ============================================================
 
 SYSTEM_INSTRUCTION = """
 Ikaw ang opisyal na si Antipolo-Bot, ang Chatbot ng SSS Antipolo Branch.
@@ -65,7 +132,7 @@ Ilagay sa pinakadulo ng Bawat Tugon:
 """
 
 # ============================================================
-# SESSION STATE
+# SESSION STATE & INACTIVITY CHECK (AUTO-RESET)
 # ============================================================
 
 if "messages" not in st.session_state:
@@ -82,6 +149,22 @@ if "welcome_nonce" not in st.session_state:
 
 if "latest_reply_audio" not in st.session_state:
     st.session_state.latest_reply_audio = None
+
+if "last_activity" not in st.session_state:
+    st.session_state.last_activity = datetime.now()
+
+# INACTIVITY TIMEOUT: Kapag lumipas ang 2 minuto (120 seconds) na walang galaw, awtomatikong mag-reset at i-record sa ledger
+INACTIVITY_LIMIT_SECONDS = 120 
+if len(st.session_state.messages) > 0:
+    elapsed_time = (datetime.now() - st.session_state.last_activity).total_seconds()
+    if elapsed_time > INACTIVITY_LIMIT_SECONDS:
+        record_transaction()
+        st.session_state.messages = []
+        st.session_state.voice_enabled = True
+        st.session_state.welcomed = False
+        st.session_state.welcome_nonce += 1
+        st.session_state.last_activity = datetime.now()
+        st.rerun() if hasattr(st, "rerun") else st.experimental_rerun()
 
 # ============================================================
 # CSS — CLEAN KIOSK LAYOUT
@@ -238,24 +321,19 @@ def clean_text_for_speech(text: str) -> str:
     clean_text = text.split("💡")[0]
     clean_text = re.sub(r'[*#_`~]', '', clean_text)
     
-    # Pronunciation fixes
     clean_text = clean_text.replace("SSS", "Es Es Es").replace("sss", "Es Es Es")
     clean_text = clean_text.replace("ID", "Ayditi").replace("id", "Ayditi")
     
-    # Fix My / My.SSS
     clean_text = re.sub(r'\bMy\b', 'Mai', clean_text, flags=re.IGNORECASE)
     
-    # Fix www
     clean_text = re.sub(r'\bwww\.', 'dobol-yu dobol-yu dobol-yu dot ', clean_text, flags=re.IGNORECASE)
     clean_text = re.sub(r'\bwww\b', 'dobol-yu dobol-yu dobol-yu', clean_text, flags=re.IGNORECASE)
     
-    # Fix domain endings (.ph instead of "pie")
     clean_text = clean_text.replace(".gov.ph", " dot gov dot p h").replace(".GOV.PH", " dot gov dot p h")
     clean_text = re.sub(r'\.ph\b', ' dot p h', clean_text, flags=re.IGNORECASE)
     
     clean_text = clean_text.replace(".com", " dot kom")
     
-    # Converts any number digits to English words/digits for TTS pronunciation
     def digit_to_english(match):
         digit_map = {
             '0': 'zero', '1': 'one', '2': 'two', '3': 'three', '4': 'four',
@@ -304,7 +382,7 @@ def play_invisible_audio(audio_file: Path):
         st.markdown(f'<audio autoplay src="data:audio/mp3;base64,{encoded}"></audio>', unsafe_allow_html=True)
 
 # ============================================================
-# WELCOME VOICE (ISANG BESES LANG TUSTRUGOT)
+# WELCOME VOICE
 # ============================================================
 
 if st.session_state.voice_enabled and not st.session_state.welcomed:
@@ -381,20 +459,28 @@ with col1:
 
 with col2:
     if st.button("🔄 New User / End Service", use_container_width=True, key="new_user_button"):
+        if len(st.session_state.messages) > 0:
+            record_transaction()
+            
         st.session_state.messages = []
         st.session_state.voice_enabled = True
         st.session_state.welcomed = False
         st.session_state.welcome_nonce += 1
+        st.session_state.last_activity = datetime.now()
         st.rerun() if hasattr(st, "rerun") else st.experimental_rerun()
 
 # ============================================================
-# API KEY STATUS
+# API KEY STATUS & DAILY/MONTHLY LEDGER STATS
 # ============================================================
 
 API_KEY_READY = isinstance(GEMINI_API_KEY, str) and bool(GEMINI_API_KEY.strip())
 
 if API_KEY_READY:
-    st.markdown('<div class="status-ok">● Antipolo-Bot is ready</div>', unsafe_allow_html=True)
+    total_all, today_cnt, month_cnt = get_ledger_stats()
+    st.markdown(
+        f'<div class="status-ok">● Antipolo-Bot is ready &nbsp;|&nbsp; 📅 Ngayong Araw: <b>{today_cnt}</b> &nbsp;|&nbsp; 🗓️ Ngayong Buwan: <b>{month_cnt}</b> &nbsp;|&nbsp; 📊 Total: <b>{total_all}</b></div>',
+        unsafe_allow_html=True,
+    )
 else:
     st.warning('Wala pang Gemini API Key.')
 
@@ -405,6 +491,8 @@ else:
 prompt = st.chat_input("I-type ang iyong tanong o concern tungkol sa SSS...")
 
 if prompt:
+    st.session_state.last_activity = datetime.now()
+
     if not API_KEY_READY:
         st.error("Hindi makasagot si Antipolo-Bot dahil wala pang Gemini API Key.")
     else:
@@ -442,6 +530,7 @@ if prompt:
 
                     if bot_reply:
                         st.session_state.messages.append({"role": "assistant", "content": bot_reply})
+                        st.session_state.last_activity = datetime.now()
 
                         if st.session_state.voice_enabled:
                             reply_file = make_reply_voice(bot_reply)
