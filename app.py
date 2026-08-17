@@ -271,7 +271,7 @@ def make_speech_audio(text: str, output_file: Path):
 
     return None
 
-WELCOME_TEXT = "Magandang araw! Ako po Antipolo-Bot, ang Chatbot ng SSS Antipolo Branch. Para sa inyong mga katanungan, i-type lamang at ikalulugod ko na kayo po ay matugunan."
+WELCOME_TEXT = "Magandang araw! Ako po si Antipolo-Bot, ang Chatbot ng SSS Antipolo Branch. Para sa inyong mga katanungan, i-type lamang at ikalulugod ko na kayo po ay matugunan."
 make_speech_audio(WELCOME_TEXT, WELCOME_AUDIO_FILE)
 
 def make_reply_voice(text: str):
