@@ -477,7 +477,7 @@ if API_KEY_READY:
         unsafe_allow_html=True,
     )
     
-    # DISCREET ADMIN EXPANDER (Nakatago sa loob ng maliit na menu para hindi makita ng mga user)
+    # DISCREET ADMIN EXPANDER (Nakatago sa loob ng maliit na menu)
     with st.expander("⚙️ Admin Report & Ledger", expanded=False):
         if LEDGER_CSV.exists():
             with open(LEDGER_CSV, "rb") as f:
@@ -551,7 +551,7 @@ if prompt:
             else:
                 st.error(f"Error mula sa Google Gemini API: {response.text}")
 
-        exceptException as e:
+        except Exception as e:
             st.error(f"Network error habang kumokonekta sa Gemini API: {e}")
 
 # ============================================================
