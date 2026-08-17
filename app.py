@@ -67,7 +67,7 @@ def record_transaction():
 
 def get_ledger_stats():
     today_str = date.today().strftime("%Y-%m-%d")
-    current_month_prefix = today_str[:7] # Halimbawa: "2026-08"
+    current_month_prefix = today_str[:7]
     total_all_time = 0
     today_count = 0
     month_count = 0
@@ -149,7 +149,6 @@ if "latest_reply_audio" not in st.session_state:
 if "last_activity" not in st.session_state:
     st.session_state.last_activity = datetime.now()
 
-# Inactivity auto-reset check kapag may nag-interact o nag-load ulit
 INACTIVITY_LIMIT_SECONDS = 120 
 if len(st.session_state.messages) > 0:
     elapsed_time = (datetime.now() - st.session_state.last_activity).total_seconds()
@@ -466,7 +465,7 @@ with col2:
         st.rerun() if hasattr(st, "rerun") else st.experimental_rerun()
 
 # ============================================================
-# API KEY STATUS & LEDGER STATS
+# API KEY STATUS & LEDGER STATS / DOWNLOAD BUTTON
 # ============================================================
 
 API_KEY_READY = isinstance(GEMINI_API_KEY, str) and bool(GEMINI_API_KEY.strip())
@@ -477,6 +476,17 @@ if API_KEY_READY:
         f'<div class="status-ok">● Antipolo-Bot is ready &nbsp;|&nbsp; 📅 Ngayong Araw: <b>{today_cnt}</b> &nbsp;|&nbsp; 🗓️ Ngayong Buwan: <b>{month_cnt}</b> &nbsp;|&nbsp; 📊 Total: <b>{total_all}</b></div>',
         unsafe_allow_html=True,
     )
+    
+    # Download CSV Button para sa Boss
+    if LEDGER_CSV.exists():
+        with open(LEDGER_CSV, "rb") as f:
+            st.download_button(
+                label="📥 Download Ledger Report (CSV para sa Excel)",
+                data=f,
+                file_name="bot_ledger.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
 else:
     st.warning('Wala pang Gemini API Key.')
 
