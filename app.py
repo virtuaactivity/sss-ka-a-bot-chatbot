@@ -238,10 +238,21 @@ def clean_text_for_speech(text: str) -> str:
     clean_text = text.split("💡")[0]
     clean_text = re.sub(r'[*#_`~]', '', clean_text)
     
+    # Pronunciation fixes
     clean_text = clean_text.replace("SSS", "Es Es Es").replace("sss", "Es Es Es")
     clean_text = clean_text.replace("ID", "Ayditi").replace("id", "Ayditi")
-    clean_text = clean_text.replace("www.", "W W W dot ").replace("WWW.", "W W W dot ")
-    clean_text = clean_text.replace(".gov.ph", " dot gov dot pi").replace(".GOV.PH", " dot gov dot pi")
+    
+    # Fix My / My.SSS
+    clean_text = re.sub(r'\bMy\b', 'Mai', clean_text, flags=re.IGNORECASE)
+    
+    # Fix www
+    clean_text = re.sub(r'\bwww\.', 'dobol-yu dobol-yu dobol-yu dot ', clean_text, flags=re.IGNORECASE)
+    clean_text = re.sub(r'\bwww\b', 'dobol-yu dobol-yu dobol-yu', clean_text, flags=re.IGNORECASE)
+    
+    # Fix domain endings (.ph instead of "pie")
+    clean_text = clean_text.replace(".gov.ph", " dot gov dot p h").replace(".GOV.PH", " dot gov dot p h")
+    clean_text = re.sub(r'\.ph\b', ' dot p h', clean_text, flags=re.IGNORECASE)
+    
     clean_text = clean_text.replace(".com", " dot kom")
     
     # Converts any number digits to English words/digits for TTS pronunciation
