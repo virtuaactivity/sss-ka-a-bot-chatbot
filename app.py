@@ -465,7 +465,7 @@ with col2:
         st.rerun() if hasattr(st, "rerun") else st.experimental_rerun()
 
 # ============================================================
-# API KEY STATUS & LEDGER STATS / DOWNLOAD BUTTON
+# API KEY STATUS & DISCREET ADMIN PANEL (EXPANDER)
 # ============================================================
 
 API_KEY_READY = isinstance(GEMINI_API_KEY, str) and bool(GEMINI_API_KEY.strip())
@@ -477,16 +477,16 @@ if API_KEY_READY:
         unsafe_allow_html=True,
     )
     
-    # Download CSV Button para sa Boss
-    if LEDGER_CSV.exists():
-        with open(LEDGER_CSV, "rb") as f:
-            st.download_button(
-                label="📥 Download Ledger Report (CSV para sa Excel)",
-                data=f,
-                file_name="bot_ledger.csv",
-                mime="text/csv",
-                use_container_width=True
-            )
+    # DISCREET ADMIN EXPANDER (Nakatago sa loob ng maliit na menu para hindi makita ng mga user)
+    with st.expander("⚙️ Admin Report & Ledger", expanded=False):
+        if LEDGER_CSV.exists():
+            with open(LEDGER_CSV, "rb") as f:
+                st.download_button(
+                    label="📥 Download CSV Report",
+                    data=f,
+                    file_name="bot_ledger.csv",
+                    mime="text/csv"
+                )
 else:
     st.warning('Wala pang Gemini API Key.')
 
@@ -551,7 +551,7 @@ if prompt:
             else:
                 st.error(f"Error mula sa Google Gemini API: {response.text}")
 
-        except Exception as e:
+        exceptException as e:
             st.error(f"Network error habang kumokonekta sa Gemini API: {e}")
 
 # ============================================================
