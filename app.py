@@ -244,6 +244,16 @@ def clean_text_for_speech(text: str) -> str:
     clean_text = clean_text.replace(".gov.ph", " dot gov dot pi").replace(".GOV.PH", " dot gov dot pi")
     clean_text = clean_text.replace(".com", " dot kom")
     
+    # Converts any number digits to English words/digits for TTS pronunciation
+    def digit_to_english(match):
+        digit_map = {
+            '0': 'zero', '1': 'one', '2': 'two', '3': 'three', '4': 'four',
+            '5': 'five', '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine'
+        }
+        return ' '.join(digit_map[d] for d in match.group(0))
+
+    clean_text = re.sub(r'\d+', digit_to_english, clean_text)
+    
     return clean_text.strip()[:1800]
 
 def make_speech_audio(text: str, output_file: Path):
@@ -356,7 +366,7 @@ with col1:
     )
     if current_voice != st.session_state.voice_enabled:
         st.session_state.voice_enabled = current_voice
-        st.rerun()
+        st.rerun() if hasattr(st, "rerun") else st.experimental_rerun()
 
 with col2:
     if st.button("🔄 New User / End Service", use_container_width=True, key="new_user_button"):
@@ -364,7 +374,7 @@ with col2:
         st.session_state.voice_enabled = True
         st.session_state.welcomed = False
         st.session_state.welcome_nonce += 1
-        st.rerun()
+        st.rerun() if hasattr(st, "rerun") else st.experimental_rerun()
 
 # ============================================================
 # API KEY STATUS
@@ -416,7 +426,7 @@ if prompt:
             if response.ok:
                 candidates = res_json.get("candidates", [])
                 if candidates:
-                    parts = candidates[0].get("content", {}) .get("parts", [])
+                    parts = candidates[0].get("content", {}).get("parts", [])
                     bot_reply = "".join(p.get("text", "") for p in parts if isinstance(p, dict)).strip()
 
                     if bot_reply:
@@ -427,7 +437,7 @@ if prompt:
                             if reply_file:
                                 st.session_state.latest_reply_audio = reply_file
 
-                        st.rerun() 
+                        st.rerun() if hasattr(st, "rerun") else st.experimental_rerun() 
                     else:
                         st.error("Nakakonekta sa Gemini pero walang text na sagot na natanggap.")
                 else:
