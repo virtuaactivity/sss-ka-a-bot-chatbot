@@ -8,11 +8,11 @@ import re
 from pathlib import Path
 
 # ============================================================
-# KA A-BOT — SSS ANTIPOLO BRANCH
+# ANTIPOLO-BOT — SSS ANTIPOLO BRANCH
 # ============================================================
 
 st.set_page_config(
-    page_title="Ka A-bot - SSS Antipolo",
+    page_title="Antipolo-Bot - SSS Antipolo",
     page_icon="🤖",
     layout="centered",
     initial_sidebar_state="collapsed",
@@ -34,22 +34,32 @@ GEMINI_MODEL = "gemini-3.6-flash"
 # ============================================================
 
 SYSTEM_INSTRUCTION = """
-Ikaw ang opisyal na si Ka A-bot, ang Chatbot ng SSS Antipolo Branch.
+Ikaw ang opisyal na si Antipolo-Bot, ang Chatbot ng SSS Antipolo Branch.
 Ang layunin mo ay magbigay ng tumpak, magalang, at mabilis na impormasyon sa mga kliyente.
 
 Sundin mo nang mahigpit ang mga alituntuning ito:
 
-1. Wika at Porma ng Tanong (Language Matching Rule):
+1. Saklaw ng mga Sasagutin (Scope of Topics):
+- Ang mga tanging katanungan lamang na iyong sasagutin ay tungkol sa SSS - Membership, Benefits, at Loans. Ito lamang ang mga paksang tinatalakay.
+
+2. Pinagmulan ng Impormasyon at Pagbabawal sa Pag-iimbento (Source & Accuracy Rule):
+- Ang TANGING opisyal na pinagmulan ng mga sagot ay mula sa opisyal na website ng SSS: sss.gov.ph (latest/updated info patungkol sa Membership, Benefits, at Loans). Walang iba pang source (alisin o huwag gagamit ng anumang file o folder source).
+- Huwag mag-imbento ng sariling sagot. Laging magbatay sa main source ng mga isasagot, eksakto ang impormasyon, kung paano ito isagawa, mga kinakailangan (requirements), at iba pa, basta't laging mula sa sss.gov.ph.
+
+3. Wika at Porma ng Tanong (Language Matching Rule):
 - Unawain ang mga tanong kahit ito ay nasa estilong "jejemon", may mga typographical error (typos), o nakasulat sa English.
 - Kung ang tanong ay nakasulat sa English, DAPAT mong sagutin ito sa English. Kung sa Tagalog o Taglish, sagutin ito sa Tagalog/Taglish.
 
-2. Pag-handle ng mga Tanong at Implicit/Bitin na Tanong:
-- Pangunahing pag-aralan at kunin ang sagot mula sa opisyal na website ng SSS (sss.gov.ph).
-- Mag-ingat sa mga tanong na mukhang maikling pahayag, bitin, o implicit ngunit maaari namang mai-konekta sa serbisyo ng SSS. (Halimbawa: "Bakit di pumasok hulog ko?", "May walk in ba kayo?")
-- Huwag itong tanggihan. Sa halip, iugnay at unawain ito bilang tanong patungkol sa mga transaksyon ng SSS.
-- Para sa mga tanong na talagang walang kinalaman sa SSS, magalang na sabihin na tanging mga tanong na may kinalaman sa SSS service lamang ang iyong masasagot.
+4. Pag-handle ng mga Tanong (SSS-related vs. Unrelated):
+- Pangunahing pag-aralan at kunin ang sagot mula sa opisyal na website ng SSS (sss.gov.ph) para sa mga paksa ng Membership, Benefits, at Loans.
+- Mag-ingat sa mga tanong na mukhang maikling pahayag, bitin, o implicit ngunit maaari namang mai-konekta sa serbisyo ng SSS. Huwag itong agad tanggihan; sa halip, iugnay at unawain ito bilang tanong patungkol sa mga transaksyon ng SSS.
+- Para sa mga tanong na may kinalaman sa SSS ngunit hindi makikita sa website o kaya ay mga komplikadong katanungan, magalang na i-direct ang kliyente na kontakin ang:
+  * Email: antipolo@sss.gov.ph
+  * Hotline: 1455
+  * O ang pinakamalapit na SSS branch.
+- Para sa mga tanong na walang kinalaman sa SSS service o mga konsern, huwag itong sagutin at magalang na sabihin na hindi mo masasagot ang mga katanungang walang kinalaman sa SSS service o concerns.
 
-3. FORMAT NG PAALALA:
+5. FORMAT NG PAALALA:
 Ilagay sa pinakadulo ng Bawat Tugon:
 💡 Paalala: Kung tapos ka nang magtanong, mangyaring i-click ang New User/End Service button sa ibaba upang mabura ang ating usapan at mapanatiling ligtas at pribado ang iyong mga impormasyon para sa susunod na gagamit.
 """
@@ -261,7 +271,7 @@ def make_speech_audio(text: str, output_file: Path):
 
     return None
 
-WELCOME_TEXT = "Magandang araw! Ako po si Ka A-bot, ang Chatbot ng SSS Antipolo Branch. Para sa inyong mga katanungan, i-type lamang at ikalulugod ko na kayo po ay matugunan."
+WELCOME_TEXT = "Magandang araw! Ako po Antipolo-Bot, ang Chatbot ng SSS Antipolo Branch. Para sa inyong mga katanungan, i-type lamang at ikalulugod ko na kayo po ay matugunan."
 make_speech_audio(WELCOME_TEXT, WELCOME_AUDIO_FILE)
 
 def make_reply_voice(text: str):
@@ -291,7 +301,7 @@ if not st.session_state.messages:
             <div class="robot">🤖</div>
             <div class="title">Kumusta po!</div>
             <div class="text">
-                Ako po si Ka A-bot.<br>
+                Ako po si Antipolo-Bot.<br>
                 Ano po ang maitutulong ko sa inyo ngayon?
             </div>
         </div>
@@ -319,7 +329,7 @@ else:
             st.markdown(
                 f"""
                 <div class="bot-bubble">
-                    <div class="label">🤖 Ka A-bot</div>
+                    <div class="label">🤖 Antipolo-Bot</div>
                     {safe_text}
                 </div>
                 """,
@@ -334,7 +344,7 @@ else:
 # CONTROLS
 # ============================================================
 
-st.markdown('<div class="controls-title">Ka A-bot Controls</div>', unsafe_allow_html=True)
+st.markdown('<div class="controls-title">Antipolo-Bot Controls</div>', unsafe_allow_html=True)
 
 col1, col2 = st.columns([1, 1])
 
@@ -363,7 +373,7 @@ with col2:
 API_KEY_READY = isinstance(GEMINI_API_KEY, str) and bool(GEMINI_API_KEY.strip())
 
 if API_KEY_READY:
-    st.markdown('<div class="status-ok">● Ka A-bot is ready</div>', unsafe_allow_html=True)
+    st.markdown('<div class="status-ok">● Antipolo-Bot is ready</div>', unsafe_allow_html=True)
 else:
     st.warning('Wala pang Gemini API Key.')
 
@@ -375,7 +385,7 @@ prompt = st.chat_input("I-type ang iyong tanong o concern tungkol sa SSS...")
 
 if prompt:
     if not API_KEY_READY:
-        st.error("Hindi makapagsagot si Ka A-bot dahil wala pang Gemini API Key.")
+        st.error("Hindi makasagot si Antipolo-Bot dahil wala pang Gemini API Key.")
     else:
         st.session_state.messages.append({"role": "user", "content": prompt})
 
@@ -395,7 +405,7 @@ if prompt:
         headers = {"Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY.strip()}
 
         try:
-            with st.spinner("Nag-iisip si Ka A-bot..."):
+            with st.spinner("Nag-iisip si Antipolo-Bot..."):
                 response = requests.post(url, headers=headers, json=payload, timeout=60)
             
             try:
@@ -432,4 +442,4 @@ if prompt:
 # FOOTER
 # ============================================================
 
-st.markdown('<div class="ka-footer">SSS Antipolo Branch • Ka A-bot</div>', unsafe_allow_html=True)
+st.markdown('<div class="ka-footer">SSS Antipolo Branch • Antipolo-Bot</div>', unsafe_allow_html=True)
